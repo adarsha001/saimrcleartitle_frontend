@@ -154,7 +154,7 @@ export default function VerifiedProperties() {
           </div>
         </div>
 
-        {/* Bottom CTA Section */}
+        
         <div className="mt-20 text-center border-t-2 border-black pt-12 pb-9">
     
         </div>
