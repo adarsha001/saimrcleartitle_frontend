@@ -104,7 +104,7 @@ export default function Footer() {
               <h3 className="text-2xl font-light mb-2">SAIMR GROUPS</h3>
               <div className="w-20 h-1 bg-white mb-4"></div>
               <p className="text-gray-300 leading-relaxed max-w-md">
-                Shaping the future of India's industrial and logistics real estate. 
+                Shaping the future of India's industrial and logistics real estate!. 
                 We connect investors and developers with strategic land opportunities 
                 across Bengaluru, Karnataka with clear title properties only.
               </p>
