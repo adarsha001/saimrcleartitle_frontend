@@ -130,6 +130,8 @@ export const fetchAllEnquiries = (page = 1, limit = 10, status = '', search = ''
   return fetchWithRetry(() => API.get("/enquiries", { params }));
 };
 
+export const getsPropertyById = (id) => 
+  fetchWithRetry(() => API.get(`/properties/${id}`));
 // Get enquiry by ID
 export const fetchEnquiryById = (id) => 
   fetchWithRetry(() => API.get(`/enquiries/${id}`));
@@ -341,8 +343,150 @@ export const fetchHourlyDistribution = async (timeframe = '7d', groupBy = 'hour'
 };
 // ✅ FIXED: Get property by ID for editing
 export const fetchPropertyById = (id) => 
-  fetchWithRetry(() => API.get(`/properties/${id}`));
+  fetchWithRetry(() => API.get(`/agent/properties/${id}`));
 
+// adminApi.js - FIXED VERSION
+// adminApi.js - UPDATED createPropertyByAdmin function
+export const createPropertyByAdmin = async (formData) => {
+  try {
+    const token = localStorage.getItem('token');
+    
+    console.log('📤 Sending FormData to server...');
+    
+    // Debug FormData contents
+    if (formData instanceof FormData) {
+      console.log('📋 FormData contents:');
+      let imageCount = 0;
+      for (let [key, value] of formData.entries()) {
+        if (key === 'images') {
+          imageCount++;
+          console.log(`  ${key}[${imageCount}]:`, value.name || 'File', `(${value.size} bytes, ${value.type})`);
+        } else {
+          console.log(`  ${key}:`, typeof value === 'string' ? value.substring(0, 100) + '...' : value);
+        }
+      }
+      console.log(`📊 Total images: ${imageCount}`);
+    }
+
+    const response = await fetch(`${baseURL}/agent/properties`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        // No Content-Type header for FormData
+      },
+      body: formData,
+    });
+
+    const responseData = await response.json();
+    
+    if (!response.ok) {
+      console.error('❌ Server error response:', responseData);
+      
+      // Provide more specific error messages
+      if (response.status === 500) {
+        throw new Error(responseData.message || 'Server error occurred while creating property');
+      } else if (response.status === 400) {
+        throw new Error(responseData.message || 'Invalid data provided');
+      } else {
+        throw new Error(responseData.message || `Failed to create property (Status: ${response.status})`);
+      }
+    }
+
+    console.log('✅ Property created successfully:', responseData);
+    return responseData;
+    
+  } catch (error) {
+    console.error('❌ API Error:', error);
+    
+    // Enhanced error handling
+    if (error.message.includes('Failed to fetch')) {
+      throw new Error('Network error: Cannot connect to server. Please check your internet connection.');
+    }
+    
+    throw error;
+  }
+};
+// Admin updates property with all fields
+export const updatePropertyByAdmin = async (id, formData) => {
+  try {
+    const token = localStorage.getItem('token');
+    
+    console.log('📤 Sending UPDATE FormData with fetch...');
+    
+    // Debug: Check FormData contents
+    for (let [key, value] of formData.entries()) {
+      if (key === 'images') {
+        console.log(`  ${key}:`, value.name || 'File', `(${value.size} bytes)`);
+      } else if (key === 'existingImages') {
+        console.log(`  ${key}:`, value); // Array of existing image URLs
+      } else {
+        console.log(`  ${key}:`, value);
+      }
+    }
+
+    const response = await fetch(`${baseURL}/agent/properties/${id}`, {
+      method: 'PUT',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        // No Content-Type header - let browser set it automatically for FormData
+      },
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      console.error('❌ Server error response:', errorData);
+      throw new Error(errorData.message || 'Failed to update property');
+    }
+
+    const result = await response.json();
+    console.log('✅ Property updated successfully:', result);
+    return result;
+    
+  } catch (error) {
+    console.error('❌ API Error:', error);
+    throw error;
+  }
+};
+
+// Get properties with agent details and filters
+export const getPropertiesWithAgents = (params = {}) => 
+  fetchWithRetry(() => API.get("/agent/properties/with-agents", { params }));
+
+// Get single property by ID for admin
+export const getPropertyById = (id) => 
+  fetchWithRetry(() => API.get(`/agent/properties/${id}`));
+
+// Delete property by admin
+export const deletePropertyByAdmin = (id) => 
+  API.delete(`/agent/properties/${id}`);
+
+// Assign agent to property
+export const assignAgentToProperty = async (propertyId, agentData) => {
+  try {
+    const response = await API.put(`/agent/properties/${propertyId}/assign-agent`, agentData);
+    return response;
+  } catch (error) {
+    throw error;
+  }
+};
+// Get agents list
+export const getAgentsList = async (params = {}) => {
+  try {
+    const response = await API.get('/agent/agents/list', { params });
+    return response;
+  } catch (error) {
+    throw error;
+  }
+};
+export const getPropertyStats = async () => {
+  try {
+    const response = await API.get('/agent/properties-stats');
+    return response;
+  } catch (error) {
+    throw error;
+  }
+};
 // // ✅ FIXED: Update property
 // export const updateProperty = (id, data) => 
 //   API.put(`/properties/${id}`, data);
