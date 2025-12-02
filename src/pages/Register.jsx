@@ -297,7 +297,7 @@ export default function Register() {
               
               <ReCAPTCHA
                 ref={recaptchaRef}
-                sitekey={ import.meta.env.VITE_RECAPTCHA_SITE_KEY}
+                sitekey="6LfNKx8sAAAAAN1BwpjlcY5iU5iS9JmNEaYHewXs"
                 onChange={onCaptchaChange}
                 theme="dark"
                 className="[&>div>div]:mx-auto"
