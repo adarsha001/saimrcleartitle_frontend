@@ -1,12 +1,18 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import { Building2, User, Mail, Lock, Phone, UserCircle, ChevronRight, Briefcase } from "lucide-react";
+import { 
+  Building2, User, Mail, Lock, Phone, 
+  UserCircle, ChevronRight, Briefcase, Shield 
+} from "lucide-react";
+import ReCAPTCHA from "react-google-recaptcha";
 
 export default function Register() {
   const { register } = useAuth();
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
+  const [captchaError, setCaptchaError] = useState("");
+  const recaptchaRef = useRef();
 
   const [formData, setFormData] = useState({
     username: "",
@@ -18,17 +24,38 @@ export default function Register() {
     password: "",
   });
 
-  const handleChange = (e) =>
+  const [captchaToken, setCaptchaToken] = useState("");
+
+  const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
+    if (captchaError) setCaptchaError("");
+  };
+
+  const onCaptchaChange = (token) => {
+    setCaptchaToken(token);
+    if (captchaError) setCaptchaError("");
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    // Validate captcha
+    if (!captchaToken) {
+      setCaptchaError("Please complete the 'I'm not a robot' verification");
+      return;
+    }
+
     setIsLoading(true);
     try {
-      await register(formData);
+      await register(formData, captchaToken);
       navigate("/profile");
     } catch (error) {
-      alert("Registration failed");
+      // Reset captcha on error
+      if (recaptchaRef.current) {
+        recaptchaRef.current.reset();
+        setCaptchaToken("");
+      }
+      alert(error.message || "Registration failed. Please try again.");
     } finally {
       setIsLoading(false);
     }
@@ -52,7 +79,6 @@ export default function Register() {
           {/* Logo/Brand */}
           <div className="space-y-4">
             <div className="flex items-center gap-3">
-              {/* <Building2 className="w-10 h-10" /> */}
               <div>
                 <h1 className="text-3xl font-light tracking-tight">SAIMR</h1>
                 <p className="text-sm text-white/60 tracking-widest">GROUPS</p>
@@ -187,7 +213,7 @@ export default function Register() {
               </div>
             </div>
 
-            {/* Phone & Email - Side by Side on larger screens */}
+            {/* Phone & Email */}
             <div className="grid md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <label className="text-sm text-white/70 tracking-wide">Phone Number</label>
@@ -250,20 +276,47 @@ export default function Register() {
               />
               <span className="text-sm text-white/60 group-hover:text-white/80 transition-colors">
                 I agree to the{" "}
-                       <button
-              type="button"
-              onClick={() => navigate("/terms")}
-              className="text-white underline"
-            >Terms & Conditions</button>
-               
-               
+                <button
+                  type="button"
+                  onClick={() => navigate("/terms")}
+                  className="text-white underline"
+                >
+                  Terms & Conditions
+                </button>
               </span>
             </label>
+
+            {/* reCAPTCHA */}
+            <div className="space-y-2 pt-2">
+              <div className="flex items-center gap-2 text-sm text-white/70">
+                <Shield className="w-4 h-4" />
+                <span>Security Verification</span>
+              </div>
+              
+              <ReCAPTCHA
+                ref={recaptchaRef}
+                sitekey={process.env.REACT_APP_RECAPTCHA_SITE_KEY}
+                onChange={onCaptchaChange}
+                theme="dark"
+                className="[&>div>div]:mx-auto"
+              />
+              
+              {captchaError && (
+                <p className="text-red-400 text-sm flex items-center gap-2">
+                  <Shield className="w-4 h-4" />
+                  {captchaError}
+                </p>
+              )}
+              
+              <p className="text-xs text-white/40">
+                This helps us prevent automated account creation
+              </p>
+            </div>
 
             {/* Submit Button */}
             <button
               type="submit"
-              disabled={isLoading}
+              disabled={isLoading || !captchaToken}
               className="group w-full bg-white text-black py-4 rounded-none hover:bg-white/90 transition-all duration-300 flex items-center justify-center gap-2 font-medium disabled:opacity-50 disabled:cursor-not-allowed mt-6"
             >
               {isLoading ? (
@@ -298,7 +351,19 @@ export default function Register() {
             </button>
           </form>
 
-     
+          {/* Security Notice */}
+          <div className="mt-8 p-4 border border-white/10 bg-white/5 rounded-sm">
+            <div className="flex items-start gap-3">
+              <Shield className="w-5 h-5 text-white/60 flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm font-medium">Account Security</p>
+                <p className="text-xs text-white/50 mt-1">
+                  Your account is protected with industry-standard security measures. 
+                  We never share your personal information with third parties.
+                </p>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>

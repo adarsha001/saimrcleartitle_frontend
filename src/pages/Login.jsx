@@ -28,7 +28,7 @@ export default function Login() {
   return (
     <div className="min-h-screen bg-black text-white flex">
       {/* Left Side - Branding */}
-      <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-white/10 to-transparent relative overflow-hidden">
+      <div className="hidden lg:flex lg:w-1/2  from-white/10 to-transparent relative overflow-hidden">
         <div className="absolute inset-0 bg-[url('/api/placeholder/1200/1600')] bg-cover bg-center opacity-20" />
         <div className="relative z-10 flex flex-col justify-between p-12 xl:p-16">
           {/* Logo/Brand */}

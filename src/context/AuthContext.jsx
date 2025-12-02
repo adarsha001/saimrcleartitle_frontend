@@ -34,10 +34,14 @@ export const AuthProvider = ({ children }) => {
     initializeAuth();
   }, []);
 
-  // Rest of your AuthContext code remains the same...
-  const login = async (emailOrUsername, password) => {
+  // Login with reCAPTCHA
+  const login = async (emailOrUsername, password, captchaToken) => {
     try {
-      const { data } = await API.post('/auth/login', { emailOrUsername, password });
+      const { data } = await API.post('/auth/login', { 
+        emailOrUsername, 
+        password,
+        captchaToken 
+      });
       
       if (data.success && data.token && data.user) {
         localStorage.setItem('token', data.token);
@@ -46,17 +50,33 @@ export const AuthProvider = ({ children }) => {
         
         return { success: true, user: data.user };
       } else {
-        throw new Error('Invalid response from server');
+        throw new Error(data.message || 'Invalid response from server');
       }
     } catch (error) {
       console.error('❌ Login error:', error);
-      throw error;
+      
+      // Handle specific error messages
+      let errorMessage = 'Login failed';
+      
+      if (error.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      } else if (error.response?.status === 401) {
+        errorMessage = 'Invalid email/username or password';
+      } else if (error.response?.status === 400 && error.response.data.message.includes('Captcha')) {
+        errorMessage = 'Security verification failed. Please try again.';
+      }
+      
+      throw new Error(errorMessage);
     }
   };
 
-  const register = async (formData) => {
+  // Register with reCAPTCHA
+  const register = async (formData, captchaToken) => {
     try {
-      const { data } = await API.post('/auth/register', formData);
+      const { data } = await API.post('/auth/register', {
+        ...formData,
+        captchaToken
+      });
       
       if (data.success && data.token && data.user) {
         localStorage.setItem('token', data.token);
@@ -65,11 +85,23 @@ export const AuthProvider = ({ children }) => {
         
         return { success: true, user: data.user };
       } else {
-        throw new Error('Invalid response from server');
+        throw new Error(data.message || 'Invalid response from server');
       }
     } catch (error) {
       console.error('❌ Registration error:', error);
-      throw error;
+      
+      // Handle specific error messages
+      let errorMessage = 'Registration failed';
+      
+      if (error.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      } else if (error.response?.status === 409) {
+        errorMessage = 'User already exists with this email or username';
+      } else if (error.response?.status === 400 && error.response.data.message.includes('Captcha')) {
+        errorMessage = 'Security verification failed. Please try again.';
+      }
+      
+      throw new Error(errorMessage);
     }
   };
 
@@ -84,17 +116,30 @@ export const AuthProvider = ({ children }) => {
     setUser(updatedUser);
   };
 
+  // Verify reCAPTCHA token (can be used for other forms)
+  const verifyCaptcha = async (captchaToken) => {
+    try {
+      const { data } = await API.post('/auth/verify-captcha', { captchaToken });
+      return data.success;
+    } catch (error) {
+      console.error('❌ Captcha verification error:', error);
+      return false;
+    }
+  };
+
   const value = {
     user,
     login,
     register,
     logout,
     updateUser,
+    verifyCaptcha,
     loading,
     isAuthenticated: !!user,
     userInfo: user ? {
-      id: user.id,
+      id: user.id || user._id,
       name: user.name,
+      lastName: user.lastName,
       username: user.username,
       gmail: user.gmail,
       userType: user.userType,
