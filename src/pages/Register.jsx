@@ -69,6 +69,8 @@ export default function Register() {
     { value: "agent", label: "Agent" },
     { value: "investor", label: "Investor" }
   ];
+  // In your Register.jsx, at the top of the component
+
 
   return (
     <div className="min-h-screen bg-black text-white flex">
@@ -295,7 +297,7 @@ export default function Register() {
               
               <ReCAPTCHA
                 ref={recaptchaRef}
-                sitekey={process.env.REACT_APP_RECAPTCHA_SITE_KEY}
+                sitekey={ import.meta.env.VITE_RECAPTCHA_SITE_KEY}
                 onChange={onCaptchaChange}
                 theme="dark"
                 className="[&>div>div]:mx-auto"
