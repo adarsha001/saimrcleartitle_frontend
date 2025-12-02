@@ -39,6 +39,18 @@ export default function Register() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     
+    // Validate form
+    if (!formData.username || !formData.name || !formData.gmail || !formData.password) {
+      alert("Please fill all required fields");
+      return;
+    }
+
+    // Validate password length
+    if (formData.password.length < 8) {
+      alert("Password must be at least 8 characters long");
+      return;
+    }
+
     // Validate captcha
     if (!captchaToken) {
       setCaptchaError("Please complete the 'I'm not a robot' verification");
@@ -46,8 +58,11 @@ export default function Register() {
     }
 
     setIsLoading(true);
+    setCaptchaError("");
+
     try {
-      await register(formData, captchaToken);
+      await register({ ...formData, captchaToken });
+      alert("Registration successful! Redirecting to profile...");
       navigate("/profile");
     } catch (error) {
       // Reset captcha on error
@@ -55,7 +70,13 @@ export default function Register() {
         recaptchaRef.current.reset();
         setCaptchaToken("");
       }
-      alert(error.message || "Registration failed. Please try again.");
+      
+      // Show specific error messages
+      if (error.message.includes("Captcha verification")) {
+        setCaptchaError("Captcha verification failed. Please try again.");
+      } else {
+        alert(error.message || "Registration failed. Please try again.");
+      }
     } finally {
       setIsLoading(false);
     }
@@ -69,18 +90,17 @@ export default function Register() {
     { value: "agent", label: "Agent" },
     { value: "investor", label: "Investor" }
   ];
-  // In your Register.jsx, at the top of the component
-
 
   return (
     <div className="min-h-screen bg-black text-white flex">
       {/* Left Side - Branding */}
       <div className="hidden lg:flex lg:w-2/5 bg-gradient-to-br from-white/10 to-transparent relative overflow-hidden">
-        <div className="absolute inset-0 bg-[url('/api/placeholder/1000/1600')] bg-cover bg-center opacity-20" />
+        <div className="absolute inset-0 bg-gradient-to-br from-blue-900/20 via-purple-900/10 to-black opacity-30" />
         <div className="relative z-10 flex flex-col justify-between p-12 xl:p-16">
           {/* Logo/Brand */}
           <div className="space-y-4">
             <div className="flex items-center gap-3">
+              <Building2 className="w-10 h-10 text-white" />
               <div>
                 <h1 className="text-3xl font-light tracking-tight">SAIMR</h1>
                 <p className="text-sm text-white/60 tracking-widest">GROUPS</p>
@@ -147,7 +167,7 @@ export default function Register() {
           <form onSubmit={handleSubmit} className="space-y-5">
             {/* Username */}
             <div className="space-y-2">
-              <label className="text-sm text-white/70 tracking-wide">Username</label>
+              <label className="text-sm text-white/70 tracking-wide">Username *</label>
               <div className="relative">
                 <UserCircle className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-white/40" />
                 <input
@@ -164,7 +184,7 @@ export default function Register() {
             {/* Name Fields - Side by Side */}
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <label className="text-sm text-white/70 tracking-wide">First Name</label>
+                <label className="text-sm text-white/70 tracking-wide">First Name *</label>
                 <div className="relative">
                   <User className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-white/40" />
                   <input
@@ -179,7 +199,7 @@ export default function Register() {
               </div>
 
               <div className="space-y-2">
-                <label className="text-sm text-white/70 tracking-wide">Last Name</label>
+                <label className="text-sm text-white/70 tracking-wide">Last Name *</label>
                 <div className="relative">
                   <User className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-white/40" />
                   <input
@@ -196,7 +216,7 @@ export default function Register() {
 
             {/* User Type */}
             <div className="space-y-2">
-              <label className="text-sm text-white/70 tracking-wide">I am a</label>
+              <label className="text-sm text-white/70 tracking-wide">I am a *</label>
               <div className="relative">
                 <Briefcase className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-white/40" />
                 <select
@@ -218,7 +238,7 @@ export default function Register() {
             {/* Phone & Email */}
             <div className="grid md:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <label className="text-sm text-white/70 tracking-wide">Phone Number</label>
+                <label className="text-sm text-white/70 tracking-wide">Phone Number *</label>
                 <div className="relative">
                   <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-white/40" />
                   <input
@@ -233,7 +253,7 @@ export default function Register() {
               </div>
 
               <div className="space-y-2">
-                <label className="text-sm text-white/70 tracking-wide">Email</label>
+                <label className="text-sm text-white/70 tracking-wide">Email *</label>
                 <div className="relative">
                   <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-white/40" />
                   <input
@@ -251,21 +271,22 @@ export default function Register() {
 
             {/* Password */}
             <div className="space-y-2">
-              <label className="text-sm text-white/70 tracking-wide">Password</label>
+              <label className="text-sm text-white/70 tracking-wide">Password *</label>
               <div className="relative">
                 <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-white/40" />
                 <input
                   name="password"
                   type="password"
-                  placeholder="Create a strong password"
+                  placeholder="Create a strong password (min 8 characters)"
                   value={formData.password}
                   onChange={handleChange}
                   className="w-full bg-white/5 border border-white/10 rounded-none px-12 py-3.5 text-white placeholder:text-white/30 focus:outline-none focus:border-white/30 transition-colors"
                   required
+                  minLength="8"
                 />
               </div>
               <p className="text-xs text-white/40 mt-1">
-                Must be at least 8 characters long
+                Must be at least 8 characters long with letters and numbers
               </p>
             </div>
 
@@ -273,7 +294,7 @@ export default function Register() {
             <label className="flex items-start gap-3 cursor-pointer group">
               <input 
                 type="checkbox" 
-                className="w-4 h-4 mt-1 bg-white/5 border border-white/20 rounded-sm flex-shrink-0"
+                className="w-4 h-4 mt-1 bg-white/5 border border-white/20 rounded-sm flex-shrink-0 checked:bg-white checked:text-black"
                 required
               />
               <span className="text-sm text-white/60 group-hover:text-white/80 transition-colors">
@@ -281,24 +302,36 @@ export default function Register() {
                 <button
                   type="button"
                   onClick={() => navigate("/terms")}
-                  className="text-white underline"
+                  className="text-white underline hover:text-white/80 transition-colors"
                 >
                   Terms & Conditions
+                </button>{" "}
+                and{" "}
+                <button
+                  type="button"
+                  onClick={() => navigate("/privacy")}
+                  className="text-white underline hover:text-white/80 transition-colors"
+                >
+                  Privacy Policy
                 </button>
               </span>
             </label>
 
-            {/* reCAPTCHA */}
+            {/* reCAPTCHA v2 Tickbox */}
             <div className="space-y-2 pt-2">
               <div className="flex items-center gap-2 text-sm text-white/70">
                 <Shield className="w-4 h-4" />
-                <span>Security Verification</span>
+                <span>Security Verification *</span>
               </div>
               
               <ReCAPTCHA
                 ref={recaptchaRef}
                 sitekey="6LfNKx8sAAAAAN1BwpjlcY5iU5iS9JmNEaYHewXs"
                 onChange={onCaptchaChange}
+                onExpired={() => {
+                  setCaptchaToken("");
+                  setCaptchaError("Captcha expired. Please verify again.");
+                }}
                 theme="dark"
                 className="[&>div>div]:mx-auto"
               />
@@ -311,7 +344,7 @@ export default function Register() {
               )}
               
               <p className="text-xs text-white/40">
-                This helps us prevent automated account creation
+                This helps us prevent automated account creation. Please check "I'm not a robot"
               </p>
             </div>
 
@@ -322,7 +355,10 @@ export default function Register() {
               className="group w-full bg-white text-black py-4 rounded-none hover:bg-white/90 transition-all duration-300 flex items-center justify-center gap-2 font-medium disabled:opacity-50 disabled:cursor-not-allowed mt-6"
             >
               {isLoading ? (
-                "Creating Account..."
+                <>
+                  <div className="w-5 h-5 border-2 border-black border-t-transparent rounded-full animate-spin" />
+                  Creating Account...
+                </>
               ) : (
                 <>
                   Create Account
@@ -349,7 +385,7 @@ export default function Register() {
               onClick={() => navigate("/login")}
               className="w-full border border-white/20 text-white py-4 rounded-none hover:bg-white/5 transition-all duration-300 font-medium"
             >
-              Sign In
+              Sign In to Existing Account
             </button>
           </form>
 
@@ -362,6 +398,7 @@ export default function Register() {
                 <p className="text-xs text-white/50 mt-1">
                   Your account is protected with industry-standard security measures. 
                   We never share your personal information with third parties.
+                  All communications are encrypted and secured.
                 </p>
               </div>
             </div>
