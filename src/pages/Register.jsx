@@ -59,125 +59,77 @@ export default function Register() {
     }
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+ // In your Register component, update the handleSubmit:
+
+const handleSubmit = async (e) => {
+  e.preventDefault();
+  
+  // Validate form
+  if (!formData.username || !formData.name || !formData.gmail || !formData.password) {
+    alert("Please fill all required fields");
+    return;
+  }
+
+  // Validate password length
+  if (formData.password.length < 8) {
+    alert("Password must be at least 8 characters long");
+    return;
+  }
+
+  // Validate captcha
+  if (!captchaToken) {
+    setCaptchaError("Please complete the 'I'm not a robot' verification");
+    return;
+  }
+
+  setIsLoading(true);
+  setCaptchaError("");
+
+  try {
+    console.log("Registering with:", {
+      username: formData.username,
+      captchaTokenPresent: !!captchaToken
+    });
     
-    // Validate form
-    if (!formData.username || !formData.name || !formData.gmail || !formData.password) {
-      alert("Please fill all required fields");
-      return;
-    }
-
-    // Validate password length
-    if (formData.password.length < 8) {
-      alert("Password must be at least 8 characters long");
-      return;
-    }
-
-    // Validate captcha - Check if it's loaded and has token
-    if (!captchaLoaded) {
-      setCaptchaError("Security verification is loading. Please wait...");
-      return;
-    }
-
-    if (!captchaToken) {
-      setCaptchaError("Please complete the 'I'm not a robot' verification");
-      return;
-    }
-
-    setIsLoading(true);
-    setCaptchaError("");
-
-    try {
-      console.log("Registration data to send:", {
-        ...formData,
-        captchaToken: captchaToken.substring(0, 20) + "..."
-      });
-      
-      // Prepare data exactly as backend expects
-      const registrationData = {
-        username: formData.username,
-        name: formData.name,
-        lastName: formData.lastName,
-        userType: formData.userType,
-        phoneNumber: formData.phoneNumber,
-        gmail: formData.gmail,  // Backend expects 'gmail' field
-        password: formData.password,
-        captchaToken: captchaToken  // Must be exactly 'captchaToken' (lowercase c)
-      };
-      
-      // Call register function from auth context
-      await register(registrationData);
-      
-      alert("Registration successful! Redirecting to profile...");
-      navigate("/profile");
-    } catch (error) {
-      console.error("Registration error:", error);
-      
-      // Reset captcha on error
-      if (recaptchaRef.current) {
-        recaptchaRef.current.reset();
-        setCaptchaToken("");
-      }
-      
-      // Parse error message
-      let errorMsg = error.message || "Registration failed. Please try again.";
-      
-      // Check if it's a captcha error
-      if (errorMsg.toLowerCase().includes("captcha") || 
-          errorMsg.includes("robot") ||
-          error.response?.data?.message?.toLowerCase().includes("captcha")) {
-        setCaptchaError("Captcha verification failed. Please try again.");
-      } else {
-        alert(errorMsg);
-      }
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // TEST: Direct API call to debug
-  const testDirectRegistration = async () => {
-    if (!captchaToken) {
-      alert("Please complete captcha first");
-      return;
-    }
-
-    const testData = {
-      username: `testuser_${Date.now()}`,
-      name: "Test",
-      lastName: "User",
-      userType: "buyer",
-      phoneNumber: "9876543210",
-      gmail: `test${Date.now()}@test.com`,
-      password: "Test1234",
-      captchaToken: captchaToken
+    // Prepare registration data - all in one object
+    const registrationData = {
+      ...formData,
+      captchaToken: captchaToken // This is crucial - include captchaToken in the object
     };
-
-    console.log("Testing with data:", testData);
-
-    try {
-      const response = await fetch("https://saimr-backend-1.onrender.com/api/auth/register", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(testData)
-      });
-
-      const result = await response.json();
-      console.log("Direct test response:", result);
-      
-      if (result.success) {
-        alert("✅ Test successful! Backend received captcha correctly.");
-      } else {
-        alert(`❌ Test failed: ${result.message}`);
-      }
-    } catch (error) {
-      console.error("Direct test error:", error);
-      alert("Test failed: " + error.message);
+    
+    // Call register with the single object
+    const result = await register(registrationData);
+    
+    console.log("✅ Registration result:", result);
+    
+    alert("Registration successful! Redirecting to profile...");
+    navigate("/profile");
+  } catch (error) {
+    console.error("Registration error details:", error);
+    
+    // Reset captcha on error
+    if (recaptchaRef.current) {
+      recaptchaRef.current.reset();
+      setCaptchaToken("");
     }
-  };
+    
+    // Show specific error messages
+    const errorMsg = error.message || "Registration failed";
+    
+    if (errorMsg.toLowerCase().includes("captcha") || 
+        errorMsg.includes("robot") ||
+        errorMsg.includes("security") ||
+        errorMsg.includes("verification")) {
+      setCaptchaError(errorMsg);
+    } else {
+      alert(errorMsg);
+    }
+  } finally {
+    setIsLoading(false);
+  }
+};
+
+
 
   const userTypes = [
     { value: "buyer", label: "Buyer" },
