@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { 
@@ -12,6 +12,7 @@ export default function Register() {
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
   const [captchaError, setCaptchaError] = useState("");
+  const [captchaLoaded, setCaptchaLoaded] = useState(false);
   const recaptchaRef = useRef();
 
   const [formData, setFormData] = useState({
@@ -26,14 +27,36 @@ export default function Register() {
 
   const [captchaToken, setCaptchaToken] = useState("");
 
+  // Check if reCAPTCHA is loaded
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (window.grecaptcha) {
+        setCaptchaLoaded(true);
+        console.log("reCAPTCHA loaded successfully");
+      }
+    }, 1000);
+
+    return () => clearTimeout(timer);
+  }, []);
+
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
     if (captchaError) setCaptchaError("");
   };
 
   const onCaptchaChange = (token) => {
+    console.log("Captcha token received:", token);
     setCaptchaToken(token);
     if (captchaError) setCaptchaError("");
+  };
+
+  const onCaptchaExpired = () => {
+    console.log("Captcha expired");
+    setCaptchaToken("");
+    setCaptchaError("Captcha expired. Please verify again.");
+    if (recaptchaRef.current) {
+      recaptchaRef.current.reset();
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -51,7 +74,12 @@ export default function Register() {
       return;
     }
 
-    // Validate captcha
+    // Validate captcha - Check if it's loaded and has token
+    if (!captchaLoaded) {
+      setCaptchaError("Security verification is loading. Please wait...");
+      return;
+    }
+
     if (!captchaToken) {
       setCaptchaError("Please complete the 'I'm not a robot' verification");
       return;
@@ -61,24 +89,93 @@ export default function Register() {
     setCaptchaError("");
 
     try {
-      await register({ ...formData, captchaToken });
+      console.log("Registration data to send:", {
+        ...formData,
+        captchaToken: captchaToken.substring(0, 20) + "..."
+      });
+      
+      // Prepare data exactly as backend expects
+      const registrationData = {
+        username: formData.username,
+        name: formData.name,
+        lastName: formData.lastName,
+        userType: formData.userType,
+        phoneNumber: formData.phoneNumber,
+        gmail: formData.gmail,  // Backend expects 'gmail' field
+        password: formData.password,
+        captchaToken: captchaToken  // Must be exactly 'captchaToken' (lowercase c)
+      };
+      
+      // Call register function from auth context
+      await register(registrationData);
+      
       alert("Registration successful! Redirecting to profile...");
       navigate("/profile");
     } catch (error) {
+      console.error("Registration error:", error);
+      
       // Reset captcha on error
       if (recaptchaRef.current) {
         recaptchaRef.current.reset();
         setCaptchaToken("");
       }
       
-      // Show specific error messages
-      if (error.message.includes("Captcha verification")) {
+      // Parse error message
+      let errorMsg = error.message || "Registration failed. Please try again.";
+      
+      // Check if it's a captcha error
+      if (errorMsg.toLowerCase().includes("captcha") || 
+          errorMsg.includes("robot") ||
+          error.response?.data?.message?.toLowerCase().includes("captcha")) {
         setCaptchaError("Captcha verification failed. Please try again.");
       } else {
-        alert(error.message || "Registration failed. Please try again.");
+        alert(errorMsg);
       }
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  // TEST: Direct API call to debug
+  const testDirectRegistration = async () => {
+    if (!captchaToken) {
+      alert("Please complete captcha first");
+      return;
+    }
+
+    const testData = {
+      username: `testuser_${Date.now()}`,
+      name: "Test",
+      lastName: "User",
+      userType: "buyer",
+      phoneNumber: "9876543210",
+      gmail: `test${Date.now()}@test.com`,
+      password: "Test1234",
+      captchaToken: captchaToken
+    };
+
+    console.log("Testing with data:", testData);
+
+    try {
+      const response = await fetch("https://saimr-backend-1.onrender.com/api/auth/register", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(testData)
+      });
+
+      const result = await response.json();
+      console.log("Direct test response:", result);
+      
+      if (result.success) {
+        alert("✅ Test successful! Backend received captcha correctly.");
+      } else {
+        alert(`❌ Test failed: ${result.message}`);
+      }
+    } catch (error) {
+      console.error("Direct test error:", error);
+      alert("Test failed: " + error.message);
     }
   };
 
@@ -322,18 +419,25 @@ export default function Register() {
               <div className="flex items-center gap-2 text-sm text-white/70">
                 <Shield className="w-4 h-4" />
                 <span>Security Verification *</span>
+                {!captchaLoaded && (
+                  <span className="text-xs text-yellow-400 ml-2">
+                    (Loading...)
+                  </span>
+                )}
               </div>
               
               <ReCAPTCHA
                 ref={recaptchaRef}
                 sitekey="6LfNKx8sAAAAAN1BwpjlcY5iU5iS9JmNEaYHewXs"
                 onChange={onCaptchaChange}
-                onExpired={() => {
-                  setCaptchaToken("");
-                  setCaptchaError("Captcha expired. Please verify again.");
+                onExpired={onCaptchaExpired}
+                onErrored={() => {
+                  console.error("reCAPTCHA error");
+                  setCaptchaError("Security verification error. Please reload page.");
                 }}
                 theme="dark"
                 className="[&>div>div]:mx-auto"
+                size="normal"
               />
               
               {captchaError && (
@@ -346,7 +450,38 @@ export default function Register() {
               <p className="text-xs text-white/40">
                 This helps us prevent automated account creation. Please check "I'm not a robot"
               </p>
+              
+              {/* DEBUG: Show captcha token status */}
+              <div className="text-xs text-white/30">
+                Captcha status: {captchaToken ? "✅ Verified" : "❌ Not verified"}
+                {captchaToken && ` (Token: ${captchaToken.substring(0, 10)}...)`}
+              </div>
             </div>
+
+            {/* DEBUG BUTTON - Remove in production */}
+            {process.env.NODE_ENV === 'development' && (
+              <div className="space-y-2 border border-yellow-500/30 p-3 rounded">
+                <p className="text-yellow-400 text-sm font-medium">Debug Tools</p>
+                <button
+                  type="button"
+                  onClick={testDirectRegistration}
+                  className="w-full border border-yellow-500 text-yellow-500 py-2 text-sm hover:bg-yellow-500/10"
+                >
+                  🔍 Test Captcha Directly
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    console.log("Form Data:", formData);
+                    console.log("Captcha Token:", captchaToken);
+                    alert("Check browser console for details");
+                  }}
+                  className="w-full border border-gray-500 text-gray-400 py-2 text-sm hover:bg-gray-500/10"
+                >
+                  📋 Log Form Data
+                </button>
+              </div>
+            )}
 
             {/* Submit Button */}
             <button
