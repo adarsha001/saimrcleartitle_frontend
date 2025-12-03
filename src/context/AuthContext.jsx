@@ -4,7 +4,7 @@ import axios from 'axios';
 
 // Create axios instance with base URL
 const API = axios.create({
-  baseURL: process.env.REACT_APP_API_URL || 'https://saimr-backend-1.onrender.com/api',
+  baseURL:  'https://saimr-backend-1.onrender.com/api',
   headers: {
     'Content-Type': 'application/json',
   },

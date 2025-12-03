@@ -111,11 +111,7 @@ APII.interceptors.response.use(
 // API functions
 
 // JSON APIs
-export const getProperties =  (params = {}) => {
-  return API.get("/properties", { 
-    params: { ...params, website: "saimr" } 
-  });
-};
+export const getProperties = (params = {}) => API.get("/properties", { params });
 export const getPropertyById = (id) => API.get(`/properties/${id}`);
 export const likeProperty = (propertyId) => API.post(`/users/like/${propertyId}`);
 export const unlikeProperty = (propertyId) => API.delete(`/users/like/${propertyId}`);
