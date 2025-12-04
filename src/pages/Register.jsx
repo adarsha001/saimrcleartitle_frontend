@@ -100,9 +100,7 @@ const handleSubmit = async (e) => {
     // Call register with the single object
     const result = await register(registrationData);
     
-    console.log("✅ Registration result:", result);
-    
-    alert("Registration successful! Redirecting to profile...");
+  
     navigate("/profile");
   } catch (error) {
     console.error("Registration error details:", error);
