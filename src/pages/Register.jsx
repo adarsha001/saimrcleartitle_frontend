@@ -3,17 +3,22 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { 
   Building2, User, Mail, Lock, Phone, 
-  UserCircle, ChevronRight, Briefcase, Shield 
+  UserCircle, ChevronRight, Briefcase, Shield,
+  Eye, EyeOff, CheckCircle, AlertCircle, LogIn
 } from "lucide-react";
 import ReCAPTCHA from "react-google-recaptcha";
 
 export default function Register() {
-  const { register } = useAuth();
+  const { register, googleLogin } = useAuth();
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const [captchaError, setCaptchaError] = useState("");
-  const [captchaLoaded, setCaptchaLoaded] = useState(false);
+  const [googleError, setGoogleError] = useState("");
   const recaptchaRef = useRef();
+  const googleButtonRef = useRef();
+  const isMounted = useRef(true);
 
   const [formData, setFormData] = useState({
     username: "",
@@ -23,21 +28,100 @@ export default function Register() {
     phoneNumber: "",
     gmail: "",
     password: "",
+    sourceWebsite: "saimr"
   });
 
   const [captchaToken, setCaptchaToken] = useState("");
 
-  // Check if reCAPTCHA is loaded
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      if (window.grecaptcha) {
-        setCaptchaLoaded(true);
-        console.log("reCAPTCHA loaded successfully");
-      }
-    }, 1000);
+  const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
 
-    return () => clearTimeout(timer);
+  useEffect(() => {
+    return () => (isMounted.current = false);
   }, []);
+
+  /* ---------------- GOOGLE LOGIN SDK ---------------- */
+  useEffect(() => {
+    let googleScript = null;
+    let isInitialized = false;
+
+    const initializeGoogleSignIn = () => {
+      if (window.google && GOOGLE_CLIENT_ID && !isInitialized) {
+        isInitialized = true;
+
+        try {
+          window.google.accounts.id.initialize({
+            client_id: GOOGLE_CLIENT_ID,
+            callback: handleGoogleResponse,
+            ux_mode: "popup",
+            auto_select: false,
+          });
+
+          if (googleButtonRef.current && !googleButtonRef.current.hasChildNodes()) {
+            window.google.accounts.id.renderButton(googleButtonRef.current, {
+              theme: "outline",
+              size: "large",
+              width: "100%",
+              text: "signup_with",
+              shape: "rectangular"
+            });
+
+            setTimeout(() => {
+              try {
+                window.google.accounts.id.prompt();
+              } catch {}
+            }, 1000);
+          }
+        } catch (err) {
+          setGoogleError("Unable to load Google Sign-In");
+        }
+      }
+    };
+
+    const loadGoogleSDK = () => {
+      if (!window.google) {
+        googleScript = document.createElement("script");
+        googleScript.src = "https://accounts.google.com/gsi/client";
+        googleScript.async = true;
+        googleScript.onload = initializeGoogleSignIn;
+        googleScript.onerror = () => setGoogleError("Google script failed to load");
+        document.head.appendChild(googleScript);
+      } else {
+        initializeGoogleSignIn();
+      }
+    };
+
+    if (GOOGLE_CLIENT_ID) loadGoogleSDK();
+    else setGoogleError("Google Client ID Missing");
+
+    return () => {
+      isInitialized = false;
+      if (googleButtonRef.current) googleButtonRef.current.innerHTML = "";
+
+      if (window.google) {
+        try {
+          window.google.accounts.id.cancel();
+        } catch {}
+      }
+
+      if (googleScript && document.head.contains(googleScript)) {
+        document.head.removeChild(googleScript);
+      }
+    };
+  }, [GOOGLE_CLIENT_ID]);
+
+  const handleGoogleResponse = async (response) => {
+    if (!isMounted.current) return;
+    setIsGoogleLoading(true);
+
+    try {
+      await googleLogin(response.credential);
+      navigate("/profile");
+    } catch {
+      setGoogleError("Google sign-up failed");
+    } finally {
+      if (isMounted.current) setIsGoogleLoading(false);
+    }
+  };
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -45,13 +129,11 @@ export default function Register() {
   };
 
   const onCaptchaChange = (token) => {
-    console.log("Captcha token received:", token);
     setCaptchaToken(token);
     if (captchaError) setCaptchaError("");
   };
 
   const onCaptchaExpired = () => {
-    console.log("Captcha expired");
     setCaptchaToken("");
     setCaptchaError("Captcha expired. Please verify again.");
     if (recaptchaRef.current) {
@@ -59,75 +141,56 @@ export default function Register() {
     }
   };
 
- // In your Register component, update the handleSubmit:
-
-const handleSubmit = async (e) => {
-  e.preventDefault();
-  
-  // Validate form
-  if (!formData.username || !formData.name || !formData.gmail || !formData.password) {
-    alert("Please fill all required fields");
-    return;
-  }
-
-  // Validate password length
-  if (formData.password.length < 8) {
-    alert("Password must be at least 8 characters long");
-    return;
-  }
-
-  // Validate captcha
-  if (!captchaToken) {
-    setCaptchaError("Please complete the 'I'm not a robot' verification");
-    return;
-  }
-
-  setIsLoading(true);
-  setCaptchaError("");
-
-  try {
-    console.log("Registering with:", {
-      username: formData.username,
-      captchaTokenPresent: !!captchaToken
-    });
+  const handleSubmit = async (e) => {
+    e.preventDefault();
     
-    // Prepare registration data - all in one object
-    const registrationData = {
-      ...formData,
-      captchaToken: captchaToken // This is crucial - include captchaToken in the object
-    };
-    
-    // Call register with the single object
-    const result = await register(registrationData);
-    
-  
-    navigate("/profile");
-  } catch (error) {
-    console.error("Registration error details:", error);
-    
-    // Reset captcha on error
-    if (recaptchaRef.current) {
-      recaptchaRef.current.reset();
-      setCaptchaToken("");
+    // Validate form
+    if (!formData.username || !formData.name || !formData.gmail || !formData.password) {
+      alert("Please fill all required fields");
+      return;
     }
-    
-    // Show specific error messages
-    const errorMsg = error.message || "Registration failed";
-    
-    if (errorMsg.toLowerCase().includes("captcha") || 
-        errorMsg.includes("robot") ||
-        errorMsg.includes("security") ||
-        errorMsg.includes("verification")) {
-      setCaptchaError(errorMsg);
-    } else {
-      alert(errorMsg);
+
+    if (formData.password.length < 8) {
+      alert("Password must be at least 8 characters long");
+      return;
     }
-  } finally {
-    setIsLoading(false);
-  }
-};
 
+    if (!captchaToken) {
+      setCaptchaError("Please complete the 'I'm not a robot' verification");
+      return;
+    }
 
+    setIsLoading(true);
+    setCaptchaError("");
+
+    try {
+      const registrationData = {
+        ...formData,
+        captchaToken: captchaToken
+      };
+      
+      await register(registrationData);
+      navigate("/profile");
+    } catch (error) {
+      if (recaptchaRef.current) {
+        recaptchaRef.current.reset();
+        setCaptchaToken("");
+      }
+      
+      const errorMsg = error.message || "Registration failed";
+      
+      if (errorMsg.toLowerCase().includes("captcha") || 
+          errorMsg.includes("robot") ||
+          errorMsg.includes("security") ||
+          errorMsg.includes("verification")) {
+        setCaptchaError(errorMsg);
+      } else {
+        alert(errorMsg);
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const userTypes = [
     { value: "buyer", label: "Buyer" },
@@ -183,6 +246,18 @@ const handleSubmit = async (e) => {
                 </div>
               ))}
             </div>
+
+            {/* Stats */}
+            <div className="grid grid-cols-2 gap-4 pt-4">
+              <div className="bg-white/5 p-4 border border-white/10">
+                <p className="text-white text-2xl font-light">500+</p>
+                <p className="text-white/60 text-sm">Premium Properties</p>
+              </div>
+              <div className="bg-white/5 p-4 border border-white/10">
+                <p className="text-white text-2xl font-light">100%</p>
+                <p className="text-white/60 text-sm">Verified Listings</p>
+              </div>
+            </div>
           </div>
 
           {/* Bottom */}
@@ -210,6 +285,41 @@ const handleSubmit = async (e) => {
             <p className="text-white/60">Start your real estate journey with us</p>
           </div>
 
+          {/* GOOGLE SIGN-IN */}
+          <div className="space-y-4">
+            <div className="text-center">
+              <p className="text-white/70 text-sm mb-4">Sign up quickly with Google</p>
+            </div>
+            
+            <div ref={googleButtonRef} className="w-full flex justify-center" />
+
+            {isGoogleLoading && (
+              <p className="text-center text-white/60 text-sm">Creating account with Google…</p>
+            )}
+
+            {googleError && (
+              <div className="bg-red-500/20 border border-red-500/30 rounded p-3">
+                <div className="flex items-start gap-2">
+                  <AlertCircle className="w-5 h-5 text-red-400 mt-0.5" />
+                  <div>
+                    <p className="text-red-300 text-sm font-medium">Google Sign-In Error</p>
+                    <p className="text-red-300/80 text-sm mt-1">{googleError}</p>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* DIVIDER */}
+          <div className="relative my-4">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-white/10" />
+            </div>
+            <div className="relative flex justify-center">
+              <span className="bg-black px-4 text-white/50 text-sm">Or register with email</span>
+            </div>
+          </div>
+
           {/* Register Form */}
           <form onSubmit={handleSubmit} className="space-y-5">
             {/* Username */}
@@ -224,6 +334,7 @@ const handleSubmit = async (e) => {
                   onChange={handleChange}
                   className="w-full bg-white/5 border border-white/10 rounded-none px-12 py-3.5 text-white placeholder:text-white/30 focus:outline-none focus:border-white/30 transition-colors"
                   required
+                  disabled={isLoading}
                 />
               </div>
             </div>
@@ -241,6 +352,7 @@ const handleSubmit = async (e) => {
                     onChange={handleChange}
                     className="w-full bg-white/5 border border-white/10 rounded-none px-12 py-3.5 text-white placeholder:text-white/30 focus:outline-none focus:border-white/30 transition-colors"
                     required
+                    disabled={isLoading}
                   />
                 </div>
               </div>
@@ -256,6 +368,7 @@ const handleSubmit = async (e) => {
                     onChange={handleChange}
                     className="w-full bg-white/5 border border-white/10 rounded-none px-12 py-3.5 text-white placeholder:text-white/30 focus:outline-none focus:border-white/30 transition-colors"
                     required
+                    disabled={isLoading}
                   />
                 </div>
               </div>
@@ -271,6 +384,7 @@ const handleSubmit = async (e) => {
                   value={formData.userType}
                   onChange={handleChange}
                   className="w-full bg-white/5 border border-white/10 rounded-none px-12 py-3.5 text-white focus:outline-none focus:border-white/30 transition-colors appearance-none cursor-pointer"
+                  disabled={isLoading}
                 >
                   {userTypes.map((type) => (
                     <option key={type.value} value={type.value} className="bg-black">
@@ -295,6 +409,7 @@ const handleSubmit = async (e) => {
                     onChange={handleChange}
                     className="w-full bg-white/5 border border-white/10 rounded-none px-12 py-3.5 text-white placeholder:text-white/30 focus:outline-none focus:border-white/30 transition-colors"
                     required
+                    disabled={isLoading}
                   />
                 </div>
               </div>
@@ -311,6 +426,7 @@ const handleSubmit = async (e) => {
                     onChange={handleChange}
                     className="w-full bg-white/5 border border-white/10 rounded-none px-12 py-3.5 text-white placeholder:text-white/30 focus:outline-none focus:border-white/30 transition-colors"
                     required
+                    disabled={isLoading}
                   />
                 </div>
               </div>
@@ -323,14 +439,22 @@ const handleSubmit = async (e) => {
                 <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-white/40" />
                 <input
                   name="password"
-                  type="password"
+                  type={showPassword ? "text" : "password"}
                   placeholder="Create a strong password (min 8 characters)"
                   value={formData.password}
                   onChange={handleChange}
                   className="w-full bg-white/5 border border-white/10 rounded-none px-12 py-3.5 text-white placeholder:text-white/30 focus:outline-none focus:border-white/30 transition-colors"
                   required
                   minLength="8"
+                  disabled={isLoading}
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-white/40 hover:text-white transition-colors"
+                >
+                  {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                </button>
               </div>
               <p className="text-xs text-white/40 mt-1">
                 Must be at least 8 characters long with letters and numbers
@@ -343,6 +467,7 @@ const handleSubmit = async (e) => {
                 type="checkbox" 
                 className="w-4 h-4 mt-1 bg-white/5 border border-white/20 rounded-sm flex-shrink-0 checked:bg-white checked:text-black"
                 required
+                disabled={isLoading}
               />
               <span className="text-sm text-white/60 group-hover:text-white/80 transition-colors">
                 I agree to the{" "}
@@ -350,6 +475,7 @@ const handleSubmit = async (e) => {
                   type="button"
                   onClick={() => navigate("/terms")}
                   className="text-white underline hover:text-white/80 transition-colors"
+                  disabled={isLoading}
                 >
                   Terms & Conditions
                 </button>{" "}
@@ -358,6 +484,7 @@ const handleSubmit = async (e) => {
                   type="button"
                   onClick={() => navigate("/privacy")}
                   className="text-white underline hover:text-white/80 transition-colors"
+                  disabled={isLoading}
                 >
                   Privacy Policy
                 </button>
@@ -369,26 +496,22 @@ const handleSubmit = async (e) => {
               <div className="flex items-center gap-2 text-sm text-white/70">
                 <Shield className="w-4 h-4" />
                 <span>Security Verification *</span>
-                {!captchaLoaded && (
-                  <span className="text-xs text-yellow-400 ml-2">
-                    (Loading...)
-                  </span>
-                )}
               </div>
               
-              <ReCAPTCHA
-                ref={recaptchaRef}
-                sitekey="6LfNKx8sAAAAAN1BwpjlcY5iU5iS9JmNEaYHewXs"
-                onChange={onCaptchaChange}
-                onExpired={onCaptchaExpired}
-                onErrored={() => {
-                  console.error("reCAPTCHA error");
-                  setCaptchaError("Security verification error. Please reload page.");
-                }}
-                theme="dark"
-                className="[&>div>div]:mx-auto"
-                size="normal"
-              />
+              <div className="bg-white/5 border border-white/10 p-4">
+                <ReCAPTCHA
+                  ref={recaptchaRef}
+                  sitekey="6LfNKx8sAAAAAN1BwpjlcY5iU5iS9JmNEaYHewXs"
+                  onChange={onCaptchaChange}
+                  onExpired={onCaptchaExpired}
+                  onErrored={() => {
+                    setCaptchaError("Security verification error. Please reload page.");
+                  }}
+                  theme="dark"
+                  className="[&>div>div]:mx-auto"
+                  size="normal"
+                />
+              </div>
               
               {captchaError && (
                 <p className="text-red-400 text-sm flex items-center gap-2">
@@ -400,38 +523,7 @@ const handleSubmit = async (e) => {
               <p className="text-xs text-white/40">
                 This helps us prevent automated account creation. Please check "I'm not a robot"
               </p>
-              
-              {/* DEBUG: Show captcha token status */}
-              <div className="text-xs text-white/30">
-                Captcha status: {captchaToken ? "✅ Verified" : "❌ Not verified"}
-                {captchaToken && ` (Token: ${captchaToken.substring(0, 10)}...)`}
-              </div>
             </div>
-
-            {/* DEBUG BUTTON - Remove in production */}
-            {process.env.NODE_ENV === 'development' && (
-              <div className="space-y-2 border border-yellow-500/30 p-3 rounded">
-                <p className="text-yellow-400 text-sm font-medium">Debug Tools</p>
-                <button
-                  type="button"
-                  onClick={testDirectRegistration}
-                  className="w-full border border-yellow-500 text-yellow-500 py-2 text-sm hover:bg-yellow-500/10"
-                >
-                  🔍 Test Captcha Directly
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    console.log("Form Data:", formData);
-                    console.log("Captcha Token:", captchaToken);
-                    alert("Check browser console for details");
-                  }}
-                  className="w-full border border-gray-500 text-gray-400 py-2 text-sm hover:bg-gray-500/10"
-                >
-                  📋 Log Form Data
-                </button>
-              </div>
-            )}
 
             {/* Submit Button */}
             <button
@@ -469,6 +561,7 @@ const handleSubmit = async (e) => {
               type="button"
               onClick={() => navigate("/login")}
               className="w-full border border-white/20 text-white py-4 rounded-none hover:bg-white/5 transition-all duration-300 font-medium"
+              disabled={isLoading}
             >
               Sign In to Existing Account
             </button>
