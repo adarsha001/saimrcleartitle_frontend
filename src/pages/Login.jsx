@@ -137,10 +137,8 @@ export default function Login() {
           {/* Logo/Brand */}
           <div className="space-y-4">
             <div className="flex items-center gap-3">
-              <div>
-                <h1 className="text-3xl font-light tracking-tight">SAIMR</h1>
-                <p className="text-sm text-white/60 tracking-widest">GROUPS</p>
-              </div>
+                  <img src="/logo.png" className="w-56 h-auto drop-shadow-xl" />
+
             </div>
           </div>
 
@@ -197,11 +195,9 @@ export default function Login() {
       <div className="flex-1 flex items-center justify-center p-6 lg:p-12">
         <div className="w-full max-w-md space-y-8">
           {/* Mobile Logo */}
-          <div className="lg:hidden flex items-center gap-3 justify-center mb-8">
-            <Building2 className="w-8 h-8" />
-            <div>
-              <h1 className="text-2xl font-light tracking-tight">SAIMR GROUPS</h1>
-            </div>
+ <div className="lg:hidden text-center mb-6">
+            <img src="/logo.png" className="w-40 sm:w-52 mx-auto drop-shadow-xl" />
+      
           </div>
 
           {/* Form Header */}
@@ -260,13 +256,7 @@ export default function Login() {
                 <label className="text-sm text-white/70 tracking-wide">
                   Password
                 </label>
-                <button 
-                  onClick={() => navigate("/forgot-password")} 
-                  type="button" 
-                  className="text-white/70 hover:text-white text-sm transition-colors"
-                >
-                  Forgot password?
-                </button>
+           
               </div>
               <div className="relative">
                 <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-white/40" />

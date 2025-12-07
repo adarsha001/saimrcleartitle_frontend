@@ -210,11 +210,9 @@ export default function Register() {
           {/* Logo/Brand */}
           <div className="space-y-4">
             <div className="flex items-center gap-3">
-              <Building2 className="w-10 h-10 text-white" />
-              <div>
-                <h1 className="text-3xl font-light tracking-tight">SAIMR</h1>
-                <p className="text-sm text-white/60 tracking-widest">GROUPS</p>
-              </div>
+      
+              <img src="/logo.png" className="w-96 h-auto drop-shadow-xl" />
+         
             </div>
           </div>
 
@@ -272,11 +270,8 @@ export default function Register() {
       <div className="flex-1 flex items-center justify-center p-6 lg:p-12 overflow-y-auto">
         <div className="w-full max-w-xl space-y-8 py-8">
           {/* Mobile Logo */}
-          <div className="lg:hidden flex items-center gap-3 justify-center mb-8">
-            <Building2 className="w-8 h-8" />
-            <div>
-              <h1 className="text-2xl font-light tracking-tight">SAIMR GROUPS</h1>
-            </div>
+         <div className="lg:hidden flex items-center gap-3 justify-center mb-8">
+         <img src="/logo.png" className="w-56 h-auto drop-shadow-xl" />
           </div>
 
           {/* Form Header */}

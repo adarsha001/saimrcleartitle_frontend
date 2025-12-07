@@ -1330,7 +1330,7 @@ export default function Profile() {
               }`}
             >
               <Heart className="w-4 h-4 inline mr-2" />
-              Favorite Properties ({validLikedProperties.length})
+              Favorite Properties 
             </button>
             <button
               onClick={() => { setActiveTab('posted'); setIsEditing(false); }}
@@ -1341,7 +1341,7 @@ export default function Profile() {
               }`}
             >
               <Home className="w-4 h-4 inline mr-2" />
-              My Listed Properties ({postedProperties.length})
+              My Listed Properties 
             </button>
             <button
               onClick={() => { setActiveTab('enquiries'); setIsEditing(false); }}
@@ -1352,7 +1352,7 @@ export default function Profile() {
               }`}
             >
               <MessageSquare className="w-4 h-4 inline mr-2" />
-              My Enquiries ({userEnquiries.length})
+              My Enquiries 
             </button>
             <button
               onClick={() => { setActiveTab('edit'); setIsEditing(true); }}
