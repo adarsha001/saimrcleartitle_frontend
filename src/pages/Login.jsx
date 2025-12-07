@@ -10,7 +10,7 @@ export default function Login() {
   const [form, setForm] = useState({
     emailOrUsername: "",
     password: "",
-    sourceWebsite: "saimr"
+    sourceWebsite: "saimgroups"
   });
 
   const [isLoading, setIsLoading] = useState(false);

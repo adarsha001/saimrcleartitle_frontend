@@ -28,7 +28,7 @@ export default function Register() {
     phoneNumber: "",
     gmail: "",
     password: "",
-    sourceWebsite: "saimr"
+    sourceWebsite: "saimgroups"
   });
 
   const [captchaToken, setCaptchaToken] = useState("");
