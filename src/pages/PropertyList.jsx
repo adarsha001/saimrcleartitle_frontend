@@ -1,8 +1,7 @@
 import { useEffect, useState, useRef } from "react";
-import { Search, SlidersHorizontal, Grid3x3, List, MapPin, Home, DollarSign, Maximize, Building, Sprout, Handshake, LandPlot, ChevronDown, X } from "lucide-react";
+import { Search, SlidersHorizontal, Grid3x3, List, MapPin, Home, DollarSign, Maximize, Building, Sprout, Handshake, LandPlot, ChevronDown, X, ChevronLeft, ChevronRight } from "lucide-react";
 import { getProperties } from "../api/axios";
 import PropertyCard from "../components/PropertyCard";
-import { useViewMode } from '../context/ViewModeContext'
 
 export default function PropertyList() {
   const [properties, setProperties] = useState([]);
@@ -16,44 +15,134 @@ export default function PropertyList() {
   const [priceRange, setPriceRange] = useState("");
   const [areaRange, setAreaRange] = useState("");
   const [showFilters, setShowFilters] = useState(false);
-  const [sort, setSort] = useState("displayOrder"); 
+  const [sort, setSort] = useState("displayOrder");
+  
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
+  const [limit] = useState(12); // Items per page
+  
   // Ref for the property listings section
   const propertyListRef = useRef(null);
 
-  useEffect(() => {
-    const fetchProperties = async () => {
-      try {
-        setLoading(true);
-        const response = await getProperties();
-        setProperties(response.data.properties || []);
-      } catch (err) {
-        setError("Failed to fetch properties");
-        console.error("Error fetching properties:", err);
-      } finally {
-        setLoading(false);
-      }
-    };
+  // Fetch properties with pagination
+  const fetchProperties = async () => {
+    try {
+      setLoading(true);
+      const params = {
+        page: currentPage,
+        limit: limit,
+        category: categoryFilter || undefined,
+        city: cityFilter || undefined,
+        search: search || undefined,
+        sortBy: getSortField(sort),
+        sortOrder: getSortOrder(sort),
+        minPrice: getMinPrice(priceRange),
+        maxPrice: getMaxPrice(priceRange)
+      };
+      
+      const response = await getProperties(params);
+      setProperties(response.data.properties || []);
+      setTotalPages(response.data.totalPages || 1);
+      setTotalCount(response.data.total || 0);
+      setError("");
+    } catch (err) {
+      setError("Failed to fetch properties");
+      console.error("Error fetching properties:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
+  // Fetch properties when filters change
+  useEffect(() => {
+    setCurrentPage(1); // Reset to first page when filters change
+    fetchProperties();
+  }, [categoryFilter, cityFilter, priceRange, areaRange, search, sort]);
+
+  // Fetch properties when page changes
+  useEffect(() => {
+    if (currentPage > 1) {
+      fetchProperties();
+    }
+  }, [currentPage]);
+
+  // Initial fetch
+  useEffect(() => {
     fetchProperties();
   }, []);
 
-useEffect(() => {
-  if (search && propertyListRef.current) {
-    setTimeout(() => {
-      const element = propertyListRef.current;
-      if (element) {
-        const elementPosition = element.getBoundingClientRect().top + window.pageYOffset;
-        const offsetPosition = elementPosition - (window.innerHeight * 0.4); // 40% from top = 60% scroll
-        
-        window.scrollTo({
-          top: offsetPosition,
-          behavior: 'smooth'
-        });
-      }
-    }, 100);
-  }
-}, [search]);
-  // Smooth scroll when category filter is applied
+  // Helper functions for sorting
+  const getSortField = (sortValue) => {
+    switch(sortValue) {
+      case "displayOrder": return "displayOrder";
+      case "newest": return "createdAt";
+      case "oldest": return "createdAt";
+      case "name": return "title";
+      case "price-low": return "price";
+      case "price-high": return "price";
+      case "area-low": return "attributes.square";
+      case "area-high": return "attributes.square";
+      default: return "displayOrder";
+    }
+  };
+
+  const getSortOrder = (sortValue) => {
+    switch(sortValue) {
+      case "newest":
+      case "price-high":
+      case "area-high":
+        return "desc";
+      case "oldest":
+      case "price-low":
+      case "area-low":
+      case "name":
+      case "displayOrder":
+      default:
+        return "asc";
+    }
+  };
+
+  // Price range helpers
+  const getMinPrice = (range) => {
+    switch(range) {
+      case "0-50": return 0;
+      case "50-100": return 5000000;
+      case "100-200": return 10000000;
+      case "200+": return 20000000;
+      default: return undefined;
+    }
+  };
+
+  const getMaxPrice = (range) => {
+    switch(range) {
+      case "0-50": return 5000000;
+      case "50-100": return 10000000;
+      case "100-200": return 20000000;
+      case "200+": return 1000000000;
+      default: return undefined;
+    }
+  };
+
+  // Scroll to property list
+  useEffect(() => {
+    if (search && propertyListRef.current) {
+      setTimeout(() => {
+        const element = propertyListRef.current;
+        if (element) {
+          const elementPosition = element.getBoundingClientRect().top + window.pageYOffset;
+          const offsetPosition = elementPosition - (window.innerHeight * 0.4);
+          
+          window.scrollTo({
+            top: offsetPosition,
+            behavior: 'smooth'
+          });
+        }
+      }, 100);
+    }
+  }, [search]);
+
   useEffect(() => {
     if (categoryFilter && propertyListRef.current) {
       setTimeout(() => {
@@ -65,82 +154,48 @@ useEffect(() => {
     }
   }, [categoryFilter]);
 
-  const cities = [...new Set(properties.map((p) => p.city).filter(Boolean))];
-
-  const filtered = properties
-    .filter((p) => {
-      const matchesSearch =
-        p.title?.toLowerCase().includes(search.toLowerCase()) ||
-        p.city?.toLowerCase().includes(search.toLowerCase()) ||
-        p.category?.toLowerCase().includes(search.toLowerCase()) ||
-        p.propertyLocation?.toLowerCase().includes(search.toLowerCase());
-
-      const matchesCategory = categoryFilter ? p.category === categoryFilter : true;
-      const matchesCity = cityFilter ? p.city === cityFilter : true;
-
-      const matchesPriceRange = priceRange
-        ? (() => {
-            const price = p.price;
-            if (price === "Price on Request") return priceRange === "on-request";
-            const priceNum = typeof price === 'number' ? price : parseFloat(price) || 0;
-            if (priceRange === "0-50") return priceNum <= 5000000;
-            if (priceRange === "50-100") return priceNum > 5000000 && priceNum <= 10000000;
-            if (priceRange === "100-200") return priceNum > 10000000 && priceNum <= 20000000;
-            if (priceRange === "200+") return priceNum > 20000000;
-            if (priceRange === "on-request") return price === "Price on Request";
-            return true;
-          })()
-        : true;
-
-      const matchesArea = areaRange
-        ? (() => {
-            const area = p.attributes?.square || 0;
-            if (areaRange === "0-10") return area <= 10;
-            if (areaRange === "10-50") return area > 10 && area <= 50;
-            if (areaRange === "50-100") return area > 50 && area <= 100;
-            if (areaRange === "100+") return area > 1000;
-            return true;
-          })()
-        : true;
-
-      return matchesSearch && matchesCategory && matchesCity && matchesPriceRange && matchesArea;
-    })
-    .sort((a, b) => {
-   if (sort === "displayOrder") {
-      // Sort by displayOrder first, then by createdAt for same displayOrder
-      const orderDiff = (a.displayOrder || 0) - (b.displayOrder || 0);
-      if (orderDiff !== 0) return orderDiff;
-      return new Date(b.createdAt) - new Date(a.createdAt); // newest first for same order
+  // Pagination handlers
+  const handlePrevPage = () => {
+    if (currentPage > 1) {
+      setCurrentPage(currentPage - 1);
+      scrollToTop();
     }
-    if (sort === "price-low") {
-      const priceA = a.price === "Price on Request" ? Infinity : (typeof a.price === 'number' ? a.price : parseFloat(a.price) || 0);
-      const priceB = b.price === "Price on Request" ? Infinity : (typeof b.price === 'number' ? b.price : parseFloat(b.price) || 0);
-      return priceA - priceB;
+  };
+
+  const handleNextPage = () => {
+    if (currentPage < totalPages) {
+      setCurrentPage(currentPage + 1);
+      scrollToTop();
     }
-    if (sort === "price-high") {
-      const priceA = a.price === "Price on Request" ? -1 : (typeof a.price === 'number' ? a.price : parseFloat(a.price) || 0);
-      const priceB = b.price === "Price on Request" ? -1 : (typeof b.price === 'number' ? b.price : parseFloat(b.price) || 0);
-      return priceB - priceA;
-    }
-    if (sort === "name") return a.title?.localeCompare(b.title) || 0;
-    if (sort === "area-low") return (a.attributes?.square || 0) - (b.attributes?.square || 0);
-    if (sort === "area-high") return (b.attributes?.square || 0) - (a.attributes?.square || 0);
-    if (sort === "newest") return new Date(b.createdAt) - new Date(a.createdAt);
-    if (sort === "oldest") return new Date(a.createdAt) - new Date(b.createdAt);
-    return 0;
+  };
+
+  const goToPage = (page) => {
+    setCurrentPage(page);
+    scrollToTop();
+  };
+
+  const scrollToTop = () => {
+    window.scrollTo({
+      top: propertyListRef.current?.offsetTop - 100 || 0,
+      behavior: 'smooth'
     });
+  };
 
+  // Filter handlers
   const clearFilters = () => {
     setSearch("");
-    setSort("");
+    setSort("displayOrder");
     setCategoryFilter("");
     setCityFilter("");
     setPriceRange("");
     setAreaRange("");
+    setCurrentPage(1);
+    setShowFilters(false);
   };
 
   const clearCategoryFilter = () => {
     setCategoryFilter("");
+    setCurrentPage(1);
   };
 
   const handleSearchChange = (e) => {
@@ -149,15 +204,19 @@ useEffect(() => {
 
   const handleCategorySelect = (category) => {
     setCategoryFilter(categoryFilter === category ? "" : category);
+    setCurrentPage(1);
   };
 
   const handleSearchSubmit = (e) => {
-    if (e.key === 'Enter' && propertyListRef.current) {
-      propertyListRef.current.scrollIntoView({ 
-        behavior: 'smooth',
-        block: 'start'
-      });
+    if (e.key === 'Enter') {
+      setCurrentPage(1);
+      scrollToTop();
     }
+  };
+
+  const getCities = () => {
+    const cities = properties.map(p => p.city).filter(Boolean);
+    return [...new Set(cities)];
   };
 
   const activeFiltersCount = [categoryFilter, cityFilter, priceRange, areaRange].filter(Boolean).length;
@@ -172,7 +231,7 @@ useEffect(() => {
     }
   };
 
-  if (loading) {
+  if (loading && currentPage === 1) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center">
         <div className="text-center">
@@ -183,7 +242,7 @@ useEffect(() => {
     );
   }
 
-  if (error) {
+  if (error && properties.length === 0) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center">
         <div className="text-center">
@@ -193,7 +252,7 @@ useEffect(() => {
           <h2 className="text-2xl font-serif font-bold text-gray-900 mb-2 tracking-tight">Error Loading Properties</h2>
           <p className="text-gray-600 mb-6 font-light">{error}</p>
           <button
-            onClick={() => window.location.reload()}
+            onClick={fetchProperties}
             className="px-6 py-3 bg-gray-900 text-white rounded-xl hover:bg-gray-800 transition-all shadow-md font-serif font-medium tracking-wide"
           >
             Try Again
@@ -284,15 +343,15 @@ useEffect(() => {
                 </span>
               </h1>
               <p className="text-lg sm:text-xl md:text-2xl lg:text-3xl text-gray-300 font-serif font-light tracking-wider mb-6 sm:mb-8 px-4">
-                A Vision Realized,Clear titled PROPERTIES
+                A Vision Realized, Clear titled PROPERTIES
               </p>
               <div className="flex flex-wrap justify-center gap-2 sm:gap-4 mb-8 sm:mb-12 px-2">
                 <div className="px-4 sm:px-6 py-2 sm:py-3 bg-white/10 backdrop-blur-sm rounded-lg border border-white/20">
-                  <div className="text-2xl sm:text-3xl font-serif font-bold text-white">{properties.length}+</div>
+                  <div className="text-2xl sm:text-3xl font-serif font-bold text-white">{totalCount}+</div>
                   <div className="text-xs sm:text-sm text-gray-300 font-serif tracking-wide">Properties</div>
                 </div>
                 <div className="px-4 sm:px-6 py-2 sm:py-3 bg-white/10 backdrop-blur-sm rounded-lg border border-white/20">
-                  <div className="text-2xl sm:text-3xl font-serif font-bold text-white">{cities.length}+</div>
+                  <div className="text-2xl sm:text-3xl font-serif font-bold text-white">{getCities().length}+</div>
                   <div className="text-xs sm:text-sm text-gray-300 font-serif tracking-wide">Cities</div>
                 </div>
                 <div className="px-4 sm:px-6 py-2 sm:py-3 bg-white/10 backdrop-blur-sm rounded-lg border border-white/20">
@@ -419,21 +478,16 @@ useEffect(() => {
           </div>
 
           <div className="flex gap-3 items-center">
-         <select
-  className="border-2 border-gray-300 rounded-xl px-4 py-3 bg-white focus:outline-none focus:ring-2 focus:ring-gray-200 focus:border-gray-500 transition-all shadow-sm font-serif font-medium tracking-wide"
-  value={sort}
-  onChange={(e) => setSort(e.target.value)}
->
-  <option value="displayOrder">Featured Order</option>
-  <option value="newest">Newest First</option>
-  <option value="oldest">Oldest First</option>
-  <option value="name">Name (A-Z)</option>
-  {/* <option value="price-low">Price (Low to High)</option>
-  <option value="price-high">Price (High to Low)</option>
-  <option value="area-low">Area (Small to Large)</option>
-  <option value="area-high">Area (Large to Small)</option> */}
-</select>
-
+            <select
+              className="border-2 border-gray-300 rounded-xl px-4 py-3 bg-white focus:outline-none focus:ring-2 focus:ring-gray-200 focus:border-gray-500 transition-all shadow-sm font-serif font-medium tracking-wide"
+              value={sort}
+              onChange={(e) => setSort(e.target.value)}
+            >
+              <option value="displayOrder">Featured Order</option>
+              <option value="newest">Newest First</option>
+              <option value="oldest">Oldest First</option>
+              <option value="name">Name (A-Z)</option>
+            </select>
 
             <div className="flex gap-2 bg-white rounded-xl p-1 shadow-sm border-2 border-gray-300">
               <button
@@ -498,48 +552,11 @@ useEffect(() => {
                   onChange={(e) => setCityFilter(e.target.value)}
                 >
                   <option value="">All Cities</option>
-                  {cities.map((city) => (
+                  {getCities().map((city) => (
                     <option key={city} value={city}>{city}</option>
                   ))}
                 </select>
               </div>
-
-              {/* <div>
-                <label className="block text-sm font-serif font-medium text-gray-700 mb-2 tracking-wide">
-                  <DollarSign className="w-4 h-4 inline mr-1" />
-                  Price Range
-                </label>
-                <select
-                  className="w-full border-2 border-gray-300 rounded-lg px-4 py-2.5 bg-white focus:outline-none focus:ring-2 focus:ring-gray-200 focus:border-gray-500 transition-all font-serif"
-                  value={priceRange}
-                  onChange={(e) => setPriceRange(e.target.value)}
-                >
-                  <option value="">Any Price</option>
-                  <option value="0-50">Under ₹50L</option>
-                  <option value="50-100">₹50L - ₹1Cr</option>
-                  <option value="100-200">₹1Cr - ₹2Cr</option>
-                  <option value="200+">Above ₹2Cr</option>
-                  <option value="on-request">Price on Request</option>
-                </select>
-              </div> */}
-
-              {/* <div>
-                <label className="block text-sm font-serif font-medium text-gray-700 mb-2 tracking-wide">
-                  <Maximize className="w-4 h-4 inline mr-1" />
-                  Area (acre)
-                </label>
-                <select
-                  className="w-full border-2 border-gray-300 rounded-lg px-4 py-2.5 bg-white focus:outline-none focus:ring-2 focus:ring-gray-200 focus:border-gray-500 transition-all font-serif"
-                  value={areaRange}
-                  onChange={(e) => setAreaRange(e.target.value)}
-                >
-                  <option value="">Any Size</option>
-                  <option value="0-10">Under 10 acre</option>
-                  <option value="10-50">10 - 50 acre</option>
-                  <option value="50-100">50 - 100 acre</option>
-                  <option value="100+">Above 100 acre</option>
-                </select>
-              </div> */}
             </div>
           </div>
         )}
@@ -550,28 +567,40 @@ useEffect(() => {
             Discover Premium Properties
           </h2>
           <p className="text-gray-600 font-serif tracking-wide">
-            Showing {filtered.length} {filtered.length === 1 ? "property" : "properties"}
+            Showing {properties.length} of {totalCount} properties
             {activeFiltersCount > 0 && " (filtered)"}
+            <span className="text-gray-900 font-bold ml-2">• Page {currentPage} of {totalPages}</span>
           </p>
         </div>
 
-        {/* Property Cards */}
-        <div
-          className={`grid gap-6 ${
-            viewMode === "grid" ? "sm:grid-cols-2 lg:grid-cols-3" : "grid-cols-1"
-          }`}
-        >
-          {filtered.filter(property => property && property._id).map((property) => (
-            <PropertyCard 
-              key={property._id || property.id} 
-              property={property} 
-              viewMode={viewMode}
-              getCategoryIcon={getCategoryIcon}
-            />
-          ))}
-        </div>
+        {/* Loading Spinner for Page Changes */}
+        {loading && currentPage > 1 && (
+          <div className="text-center py-8">
+            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+            <p className="mt-2 text-gray-600 font-serif tracking-wide">Loading properties...</p>
+          </div>
+        )}
 
-        {filtered.length === 0 && !loading && (
+        {/* Property Cards */}
+        {!loading || currentPage === 1 ? (
+          <div
+            className={`grid gap-6 ${
+              viewMode === "grid" ? "sm:grid-cols-2 lg:grid-cols-3" : "grid-cols-1"
+            }`}
+          >
+            {properties.filter(property => property && property._id).map((property) => (
+              <PropertyCard 
+                key={property._id || property.id} 
+                property={property} 
+                viewMode={viewMode}
+                getCategoryIcon={getCategoryIcon}
+              />
+            ))}
+          </div>
+        ) : null}
+
+        {/* No results message */}
+        {properties.length === 0 && !loading && (
           <div className="text-center py-12">
             <Home className="w-16 h-16 text-gray-300 mx-auto mb-4" />
             <h3 className="text-xl font-serif font-semibold text-gray-700 mb-2 tracking-tight">No properties found</h3>
@@ -582,6 +611,135 @@ useEffect(() => {
             >
               Clear Filters
             </button>
+          </div>
+        )}
+
+        {/* Pagination Component */}
+        {totalPages > 1 && !loading && properties.length > 0 && (
+          <div className="mt-12">
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div className="text-sm text-gray-600 font-serif tracking-wide">
+                Showing {((currentPage - 1) * limit) + 1} to {Math.min(currentPage * limit, totalCount)} of {totalCount} properties
+              </div>
+              
+              <nav className="flex items-center space-x-2">
+                <button
+                  onClick={handlePrevPage}
+                  disabled={currentPage === 1}
+                  className={`p-2 sm:p-3 rounded-lg transition-all ${
+                    currentPage === 1
+                      ? "text-gray-400 cursor-not-allowed bg-gray-100"
+                      : "text-gray-700 hover:bg-gray-100 hover:text-gray-900 bg-white border border-gray-300 hover:border-gray-400"
+                  }`}
+                >
+                  <ChevronLeft className="w-5 h-5" />
+                </button>
+
+                {/* Page Numbers */}
+                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                  let pageNum;
+                  if (totalPages <= 5) {
+                    pageNum = i + 1;
+                  } else if (currentPage <= 3) {
+                    pageNum = i + 1;
+                  } else if (currentPage >= totalPages - 2) {
+                    pageNum = totalPages - 4 + i;
+                  } else {
+                    pageNum = currentPage - 2 + i;
+                  }
+
+                  return (
+                    <button
+                      key={pageNum}
+                      onClick={() => goToPage(pageNum)}
+                      className={`px-3 sm:px-4 py-2 rounded-lg font-medium transition-all font-serif ${
+                        currentPage === pageNum
+                          ? "bg-gray-900 text-white shadow-lg"
+                          : "text-gray-700 hover:bg-gray-100 bg-white border border-gray-300 hover:border-gray-400"
+                      }`}
+                    >
+                      {pageNum}
+                    </button>
+                  );
+                })}
+
+                {totalPages > 5 && currentPage < totalPages - 2 && (
+                  <>
+                    <span className="px-2 text-gray-500">...</span>
+                    <button
+                      onClick={() => goToPage(totalPages)}
+                      className={`px-3 sm:px-4 py-2 rounded-lg font-medium transition-all font-serif ${
+                        currentPage === totalPages
+                          ? "bg-gray-900 text-white shadow-lg"
+                          : "text-gray-700 hover:bg-gray-100 bg-white border border-gray-300 hover:border-gray-400"
+                      }`}
+                    >
+                      {totalPages}
+                    </button>
+                  </>
+                )}
+
+                <button
+                  onClick={handleNextPage}
+                  disabled={currentPage === totalPages}
+                  className={`p-2 sm:p-3 rounded-lg transition-all ${
+                    currentPage === totalPages
+                      ? "text-gray-400 cursor-not-allowed bg-gray-100"
+                      : "text-gray-700 hover:bg-gray-100 hover:text-gray-900 bg-white border border-gray-300 hover:border-gray-400"
+                  }`}
+                >
+                  <ChevronRight className="w-5 h-5" />
+                </button>
+              </nav>
+              
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-gray-600 font-serif tracking-wide">Go to:</span>
+                <select
+                  value={currentPage}
+                  onChange={(e) => goToPage(parseInt(e.target.value))}
+                  className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-gray-200 font-serif"
+                >
+                  {Array.from({ length: totalPages }, (_, i) => (
+                    <option key={i + 1} value={i + 1}>
+                      Page {i + 1}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            
+            {/* Mobile-friendly pagination */}
+            <div className="mt-6 sm:hidden">
+              <div className="flex items-center justify-between">
+                <button
+                  onClick={handlePrevPage}
+                  disabled={currentPage === 1}
+                  className={`px-4 py-2 rounded-lg font-medium font-serif ${
+                    currentPage === 1
+                      ? "text-gray-400 cursor-not-allowed bg-gray-100"
+                      : "bg-gray-900 text-white"
+                  }`}
+                >
+                  Previous
+                </button>
+                
+                <span className="text-sm text-gray-600 font-serif">
+                  {currentPage} of {totalPages}
+                </span>
+                
+                <button
+                  onClick={handleNextPage}
+                  disabled={currentPage === totalPages}
+                  className={`px-4 py-2 rounded-lg font-medium font-serif ${
+                    currentPage === totalPages
+                      ? "text-gray-400 cursor-not-allowed bg-gray-100"
+                      : "bg-gray-900 text-white"
+                  }`}
+                >
+                  Next
+                </button>
+              </div>
+            </div>
           </div>
         )}
       </div>
