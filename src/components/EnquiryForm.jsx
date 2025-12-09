@@ -146,7 +146,7 @@ const EnquiryForm = () => {
   };
 
   return (
-    <div className="fixed top-1/6  right-4 transform -translate-y-1/12 z-50">
+    <div className="fixed top-1/12 right-4 transform -translate-y-1/12 z-50">
       {/* Toggle Button */}
       {!isOpen && (
         <button
