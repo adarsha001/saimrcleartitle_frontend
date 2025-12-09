@@ -136,7 +136,7 @@ export default function App() {
               />
 
               <Route path="/terms" element={<TermsAndConditionsSaimr />} />
-
+<Route path="/terms-and-conditions" element={<TermsAndConditionsSaimr />} />
               {/* 404 Not Found Route - Catch all undefined routes */}
               <Route path="*" element={<NotFound />} />
             </Routes>

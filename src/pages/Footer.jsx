@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { trackClickPublic } from '../api/clickTracker'; // Import the enhanced tracker
+import { useNavigate } from 'react-router-dom';
 
 export default function Footer() {
   const [clickedItem, setClickedItem] = useState(null);
-
+  const navigate = useNavigate(); 
   const handleClick = async (itemType, itemValue, displayName = null, url = null) => {
     const itemKey = `${itemType}-${itemValue}`;
     setClickedItem(itemKey);
@@ -241,28 +242,42 @@ export default function Footer() {
       </div>
 
       {/* Bottom Bar */}
-      <div className="border-t border-gray-800">
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0">
-            <div className="text-gray-400 text-sm">
-              © {new Date().getFullYear()} SAIMR Groups. All rights reserved.
-            </div>
-            <div className="flex space-x-6 text-sm">
-              {['Privacy Policy', 'Terms of Service', 'Disclaimer'].map((link) => (
-                <button
-                  key={link}
-                  onClick={() => handleClick('legal', link.toLowerCase().replace(' ', '_'), `Legal: ${link}`)}
-                  className={`text-gray-400 hover:text-white transition-all duration-300 ${
-                    clickedItem === `legal-${link.toLowerCase().replace(' ', '_')}` ? 'font-semibold' : ''
-                  }`}
-                >
-                  {link}
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
+  <div className="border-t border-gray-800">
+  <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-6">
+    <div className="flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0">
+      <div className="text-gray-400 text-sm text-center md:text-left">
+        © {new Date().getFullYear()} SAIMR Groups. All rights reserved.
+        <span className="block md:inline md:ml-2 mt-1 md:mt-0">
+          Developed by 
+          <a 
+            href="https://www.linkedin.com/in/adarsha-h-9350182a6/" 
+            target="_blank" 
+            rel="noopener noreferrer"
+            onClick={() => handleClick('developer', 'adarsha_linkedin', 'Developer: Adarsha LinkedIn')}
+            className={`text-blue-400 hover:text-blue-300 ml-1 transition-colors duration-300 ${
+              clickedItem === 'developer-adarsha_linkedin' ? 'font-semibold text-blue-300' : ''
+            }`}
+          >
+            Adarsha
+          </a>
+        </span>
       </div>
+      <div className="flex space-x-6 text-sm">
+        <button
+          onClick={() => {
+            handleClick('legal', 'terms_and_conditions', 'Legal: Terms and Conditions');
+            navigate('/terms-and-conditions'); // Add this line if using React Router
+          }}
+          className={`text-gray-400 hover:text-white transition-all duration-300 ${
+            clickedItem === 'legal-terms_and_conditions' ? 'font-semibold' : ''
+          }`}
+        >
+          Terms and Conditions
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
     </footer>
   );
 }
